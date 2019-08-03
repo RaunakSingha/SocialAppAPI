@@ -77,24 +77,36 @@ const User = {
     },
 
     async updateUserDetails(req, res) {
-        const text = 'UPDATE users SET name = $1 WHERE email = $2 returning name, email';
+        if (!req.body.email || !req.body.password) {
+            return res.status(400).send({ 'message': 'Some values are missing' });
+        }
+        if (!Utility.isValidEmail(req.body.email)) {
+            return res.status(400).send({ 'message': 'Please enter a valid email address' });
+        }
+        const q = 'SELECT * FROM users WHERE email = $1';
         try {
-            //const retreived_password = Utility.hashPassword(req.body.password);
-            const { rows } = await db.query(text,
+            const { rows } = await db.query(q, [req.body.email]);
+            if (!rows[0]) {
+                return res.status(400).send({ 'message': 'The credentials you provided is incorrect' });
+            }
+            if (!Utility.comparePassword(rows[0].password, req.body.password)) {
+                return res.status(400).send({ 'message': 'The credentials you provided is incorrect' });
+            }
+            const text = `UPDATE users SET name = $1 WHERE email = $2`;
+            const { row } = await db.query(text,
                 [
                     req.body.name,
-                    req.body.email
+                    req.body.email,
+
                 ]
             );
-            if (!rows[0]) {
-                return res.status(404).send({ 'message': 'User not found' });
-            }
-            return res.status(200).send(rows);
-        } catch (error) {
-            console.log(error);
-            return res.status(400).send(error)
-        }
+            return res.status(200).send({ 'message': 'User updated' });
 
+        }
+        catch (error) {
+            console.log(error);
+            return res.status(400).send({ 'message': 'Try again' });
+        }
     }
 }
 
